@@ -1,0 +1,44 @@
+{
+  "perfil": {
+    "nombre": "Josue Herrera",
+    "titulo": "Desarrollador de software Jr.",
+    "resumen": "Estudiante de la Tecnológica Superior en Desarrollo de Software"
+  },
+  "estudios": [
+    {
+      "id": "1",
+      "institucion": "Pontificia Universidad Catolica del Ecuador",
+      "titulo": "Tecnológica Superior en Desarrollo de Software",
+      "fecha": "2024 - Presente"
+    }
+  ],
+  "habilidades": [
+    { "id": "1", "nombre": "JavaScript" },
+    { "id": "2", "nombre": "React" },
+    { "id": "3", "nombre": "SQL" },
+    { "id": "4", "nombre": "HTML" }
+  ],
+  "experiencia": [
+    {
+      "id": "1",
+      "rol": "Pasante Desarrollo Web",
+      "empresa": "MINTEL",
+      "periodo": "2025",
+      "descripcion": "Ayudé a crear componentes visuales."
+    }
+  ],
+  "posts": [
+    {
+        "id": "1",
+        "title": "Cómo construir una lista de tareas con React y JSON Server",
+        "date": "2025-14-12",
+        "content": "Tutorial básico para aplicación donde podrás Crear, Leer, Actualizar y Borrar tareas. Usaremos Vite para el proyecto, JSON Server como nuestra base de datos, Axios para las peticiones y React Router para navegar.\nIntroducción:\nAbre tu terminal y ejecuta estos comandos uno por uno:\nnpm create vite@latest mi-todo-list\ncd mi-todo-list\nnpm install\nnpm install axios react-router-dom json-server\ncon eso ya se tiene el ambiente preparado.\nEn la raíz de tu proyecto (junto al package.json), crea un archivo llamado db.json\n{\n  \"tasks\": [\n    { \"id\": \"1\", \"title\": \"Aprender React\", \"completed\": false },\n    { \"id\": \"2\", \"title\": \"Hacer ejercicio\", \"completed\": true }\n  ]\n}\npara correrlo abre un nuevo terminal y pon:\nnpx json-server --watch db.json --port 3000\nEl Custom Hook\nPara no ensuciar nuestros componentes, crearemos un hook que maneje toda la conexión con la base de datos. Crea un archivo: src/hooks/useTasks.js.\nimport { useState, useEffect } from 'react';\nimport axios from 'axios';\n\n// URL de nuestra API falsa\nconst API_URL = 'http://localhost:3000/tasks';\n\nexport const useTasks = () => {\n  const [tasks, setTasks] = useState([]);\n\n  // 1. LEER (Read)\n  const getTasks = async () => {\n    try {\n      const response = await axios.get(API_URL);\n      setTasks(response.data);\n    } catch (error) {\n      console.error(\"Error cargando tareas:\", error);\n    }\n  };\n\n  // 2. CREAR (Create)\n  const addTask = async (task) => {\n    await axios.post(API_URL, task);\n    getTasks(); // Recargamos la lista\n  };\n\n  // 3. ELIMINAR (Delete)\n  const deleteTask = async (id) => {\n    await axios.delete(`${API_URL}/${id}`);\n    getTasks();\n  };\n\n  // 4. ACTUALIZAR (Update)\n  const updateTask = async (id, updatedTask) => {\n    await axios.put(`${API_URL}/${id}`, updatedTask);\n    getTasks();\n  };\n\n  // Cargar tareas al iniciar\n  useEffect(() => {\n    getTasks();\n  }, []);\n\n  return { tasks, addTask, deleteTask, updateTask, getTasks };\n};\nConfigurar Rutas\nVamos a configurar la navegación en src/App.jsx. Limpia el archivo y pon esto:\nimport { BrowserRouter, Routes, Route, Link } from 'react-router-dom';\nimport TaskList from './components/TaskList';\nimport TaskForm from './components/TaskForm';\n\nfunction App() {\n  return (\n    <BrowserRouter>\n      <nav style={{ padding: '20px', background: '#eee' }}>\n        <Link to=\"/\">🏠 Inicio</Link> | <Link to=\"/add\">➕ Nueva Tarea</Link>\n      </nav>\n      \n      <div style={{ padding: '20px' }}>\n        <Routes>\n          <Route path=\"/\" element={<TaskList />} />\n          <Route path=\"/add\" element={<TaskForm />} />\n          <Route path=\"/edit/:id\" element={<TaskForm />} />\n        </Routes>\n      </div>\n    </BrowserRouter>\n  );\n}\n\nexport default App;\nLista de Tareas\nimport { useTasks } from '../hooks/useTasks';\nimport { Link } from 'react-router-dom';\n\nconst TaskList = () => {\n  // Usamos nuestro Custom Hook\n  const { tasks, deleteTask } = useTasks();\n\n  return (\n    <div>\n      <h2>Lista de Tareas</h2>\n      <ul>\n        {tasks.map((task) => (\n          <li key={task.id} style={{ marginBottom: '10px' }}>\n            {/* Si está completada, la tachamos */}\n            <span style={{ textDecoration: task.completed ? 'line-through' : 'none' }}>\n              {task.title}\n            </span>\n            \n            {/* Botones de acción */}\n            <Link to={`/edit/${task.id}`}>\n                <button style={{ marginLeft: '10px' }}>✏️ Editar</button>\n            </Link>\n            \n            <button onClick={() => deleteTask(task.id)} style={{ marginLeft: '5px', background: 'red', color:'white' }}>\n                🗑️ Borrar\n            </button>\n          </li>\n        ))}\n      </ul>\n    </div>\n  );\n};\n\nexport default TaskList;\nFormulario\nCrea src/components/TaskForm.jsx. Este componente es inteligente: sirve para Crear y para Editar al mismo tiempo.\nimport { useState, useEffect } from 'react';\nimport { useNavigate, useParams } from 'react-router-dom';\nimport axios from 'axios'; // Importamos axios directo para buscar una tarea específica\n\nconst TaskForm = () => {\n  const [title, setTitle] = useState('');\n  const navigate = useNavigate();\n  const { id } = useParams(); // Captura el ID si estamos editando\n\n  // Detectar si estamos en modo Edición\n  useEffect(() => {\n    if (id) {\n      axios.get(`http://localhost:3000/tasks/${id}`)\n        .then(res => setTitle(res.data.title));\n    }\n  }, [id]);\n\n  const handleSubmit = async (e) => {\n    e.preventDefault();\n    const taskData = { title, completed: false };\n\n    if (id) {\n      // MODO EDITAR (PUT)\n      await axios.put(`http://localhost:3000/tasks/${id}`, taskData);\n    } else {\n      // MODO CREAR (POST)\n      // Generamos un ID random simple\n      await axios.post('http://localhost:3000/tasks', { ...taskData, id: String(Date.now()) });\n    }\n\n    navigate('/'); // Volver al inicio\n  };\n\n  return (\n    <div>\n      <h2>{id ? 'Editar Tarea' : 'Crear Nueva Tarea'}</h2>\n      <form onSubmit={handleSubmit}>\n        <input \n          type=\"text\" \n          value={title} \n          onChange={(e) => setTitle(e.target.value)} \n          placeholder=\"Ej: Comprar leche\"\n          required \n        />\n        <button type=\"submit\">Guardar</button>\n      </form>\n    </div>\n  );\n};\n\nexport default TaskForm;\nResultado Final\nsi en la terminal todavia no esta corriendo el rpograma dale:\nnpm run dev"
+   },
+    {
+      "id": "2",
+      "title": "Análisis de la propuesta Temporal en TC39",
+      "date": "2025-14-12",
+      "content": "¿Qué problema resuelve?\nArregla el desastre del antiguo Date. Antes, trabajar con fechas en JavaScript era una pesadilla: las sumas salían mal, cambiar una hora rompía la fecha original y manejar horarios de otros países era casi imposible sin ayudas externas.\n¿Cómo funciona?\nDivide y vencerás. En lugar de mezclar todo en un solo saco, te da herramientas separadas y específicas: una pieza solo para \"Fechas\", otra solo para \"Horas\" y otra para \"Zonas Horarias\". Es como tener un calendario, un reloj y un mapamundi por separado, en vez de todo pegado.\n¿Por qué es relevante para el futuro de JavaScript?\nHará las webs más ligeras. Ya no tendremos que instalar librerías pesadas (como Moment.js o Day.js) para manejar fechas. Los navegadores sabrán hacer todo eso por sí mismos, haciendo que las páginas carguen más rápido y el código sea más limpio.\nTu opinión crítica (¿te parece útil? ¿tiene riesgos?)\nMe parece una mejor idea. Facilita el trabajo a los desarrolladores y hace que el código sea más fácil de entender. Sin embargo, con los cambios grandes habrá que ver cómo se adapta la comunidad y si surgen problemas inesperados al usarlo en proyectos reales."
+    }
+  ]
+}
